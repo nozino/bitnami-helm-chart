@@ -1,0 +1,124 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "mariadb.fullname" . }}
+  labels:
+    app: {{ template "mariadb.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  template:
+    metadata:
+      labels:
+        app: {{ template "mariadb.fullname" . }}
+    spec:
+#      initContainers:
+#      - name: "copy-custom-config"
+#        image: "busybox"
+#        imagePullPolicy: "{{ .Values.imagePullPolicy }}"
+        #command: ["sh", "-c", "mkdir -p /skcc/mariadb/conf && cp /skcc/mariadb_custon_config_d/my.cnf /skcc/mariadb/conf/my_custom.cnf && chown mysql:mysql -R /skcc/mariadb"]
+#        command: ["sh", "-c", "cp /mnt/my.cnf /etc/mysql/conf.d/my_custom.cnf"]
+#        volumeMounts:
+#        - name: config
+#          mountPath: /mnt
+#        - name: data
+#          mountPath: /skcc/mariadb
+      containers:
+      - name: mariadb
+        image: "{{ .Values.image }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy | quote }}
+        env:
+        {{- if .Values.usePassword }}
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "mariadb.fullname" . }}
+              key: mariadb-root-password
+        {{- if .Values.mariadbUser }}
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "mariadb.fullname" . }}
+              key: mariadb-password
+        {{- end }}
+        {{- else }}
+        - name: MYSQL_ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        {{- end }}
+        - name: MYSQL_USER
+          value: {{ default "" .Values.mariadbUser | quote }}
+        - name: MYSQL_DATABASE
+          value: {{ default "" .Values.mariadbDatabase | quote }}
+        {{- if .Values.mariadbGaleraFirstNode }}
+        - name: MYSQL_GALERA_FIRST_NODE
+          value: {{ .Values.mariadbGaleraFirstNode }}
+        {{- end }}
+        ports:
+        - name: mysql
+          containerPort: 3306
+        - name: galera-transfer
+          containerPort: 4567
+        livenessProbe:
+          exec:
+            command:
+            - mysqladmin
+            - ping
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - mysqladmin
+            - ping
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/mysql/conf.d
+        - name: data
+          mountPath: /var/lib/mysql
+{{- if .Values.metrics.enabled }}
+      - name: metrics
+        image: "{{ .Values.metrics.image }}:{{ .Values.metrics.imageTag }}"
+        imagePullPolicy: {{ .Values.metrics.imagePullPolicy | quote }}
+        env:
+        {{- if .Values.usePassword }}
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "mariadb.fullname" . }}
+              key: mariadb-root-password
+        {{- end }}
+        command: [ 'sh', '-c', 'DATA_SOURCE_NAME="root:$MYSQL_ROOT_PASSWORD@(localhost:3306)/" /bin/mysqld_exporter' ]
+        ports:
+        - name: metrics
+          containerPort: 9104
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        resources:
+{{ toYaml .Values.metrics.resources | indent 10 }}
+{{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ template "mariadb.fullname" . }}
+      - name: data
+      {{- if .Values.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.persistence.existingClaim | default (include "mariadb.fullname" .) }}
+      {{- else }}
+        emptyDir: {}
+      {{- end -}}
