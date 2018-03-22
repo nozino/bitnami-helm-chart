@@ -16,7 +16,7 @@ usePassword: true
 ## Defaults to a random 10-character alphanumeric string if not set and usePassword is true
 ## ref: https://github.com/bitnami/bitnami-docker-mariadb/blob/master/README.md#setting-the-root-password-on-first-run
 ##
-mariadbRootPassword: qwe123
+# mariadbRootPassword: 
 
 ## Create a database user
 ## Password defaults to a random 10-character alphanumeric string if not set and usePassword is true
@@ -71,14 +71,14 @@ persistence:
 ## Configure MariaDB with a custom my.cnf file
 ## ref: https://mariadb.com/kb/en/mariadb/configuring-mariadb-with-mycnf/#example-of-configuration-file
 ##
-config: |-
-  [galera]
-  wsrep_on=ON
-  wsrep_provider=/usr/lib/galera/libgalera_smm.so
-  wsrep_cluster_address=gcomm://maria-317-mariadb,maria-318-mariadb
-  binlog_format=row
-  default_storage_engine=InnoDB
-  innodb_autoinc_lock_mode=2
+# config: |-
+#   [galera]
+#   wsrep_on=ON
+#   wsrep_provider=/usr/lib/galera/libgalera_smm.so
+#   wsrep_cluster_address=gcomm://maria-317-mariadb,maria-318-mariadb
+#   binlog_format=row
+#   default_storage_engine=InnoDB
+#   innodb_autoinc_lock_mode=2
 
 metrics:
   enabled: false
@@ -98,4 +98,4 @@ resources:
     memory: 256Mi
     cpu: 250m
 
-#mariadbGaleraFirstNode: false
+# mariadbGaleraFirstNode: false
